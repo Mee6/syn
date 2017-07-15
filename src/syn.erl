@@ -31,7 +31,9 @@
 
 %% registry
 -export([register/2, register/3]).
+-export([async_register/2, async_register/3]).
 -export([unregister/1]).
+-export([async_unregister/1]).
 -export([find_by_key/1, find_by_key/2]).
 -export([find_by_pid/1, find_by_pid/2]).
 -export([registry_count/0, registry_count/1]).
@@ -45,6 +47,8 @@
 %% groups
 -export([join/2, join/3]).
 -export([leave/2]).
+-export([async_join/2, async_join/3]).
+-export([async_leave/2]).
 -export([member/2]).
 -export([get_members/1, get_members/2]).
 -export([get_local_members/1, get_local_members/2]).
