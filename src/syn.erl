@@ -145,7 +145,7 @@ send(Name, Message) ->
     end.
 
 -spec async_join(Name :: any(), Pid :: pid()) -> ok.
-async_joinn(Name, Pid) ->
+async_join(Name, Pid) ->
     syn_groups:async_join(Name, Pid).
 
 -spec async_join(Name :: any(), Pid :: pid(), Meta :: any()) -> ok.
