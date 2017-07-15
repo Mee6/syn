@@ -276,11 +276,6 @@ handle_cast({unregister_on_node, Key}, State) ->
             {noreply, State}
     end;
 
--spec handle_cast(Msg :: any(), #state{}) ->
-    {noreply, #state{}} |
-    {noreply, #state{}, Timeout :: non_neg_integer()} |
-    {stop, Reason :: any(), #state{}}.
-
 handle_cast(Msg, State) ->
     error_logger:warning_msg("Received an unknown cast message: ~p", [Msg]),
     {noreply, State}.
