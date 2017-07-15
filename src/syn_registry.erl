@@ -28,7 +28,9 @@
 
 %% API
 -export([start_link/0]).
+-export([async_register/2, async_register/3]).
 -export([register/2, register/3]).
+-export([async_unregister/1]).
 -export([unregister/1]).
 -export([find_by_key/1, find_by_key/2]).
 -export([find_by_pid/1, find_by_pid/2]).
@@ -83,6 +85,15 @@ find_by_pid(Pid, with_meta) when is_pid(Pid) ->
         Process -> {Process#syn_registry_table.key, Process#syn_registry_table.meta}
     end.
 
+-spec async_register(Key :: any(), Pid :: pid()) -> ok.
+async_register(Key, Pid) when is_pid(Pid) ->
+    async_register(Key, Pid, undefined).
+
+-spec async_register(Key :: any(), Pid :: pid(), Meta :: any()) -> ok.
+async_register(Key, Pid, Meta) when is_pid(Pid) ->
+    Node = node(Pid),
+    gen_server:cast({?MODULE, Node}, {register_on_node, Key, Pid, Meta}).
+
 -spec register(Key :: any(), Pid :: pid()) -> ok | {error, taken | pid_already_registered}.
 register(Key, Pid) when is_pid(Pid) ->
     register(Key, Pid, undefined).
@@ -91,6 +102,16 @@ register(Key, Pid) when is_pid(Pid) ->
 register(Key, Pid, Meta) when is_pid(Pid) ->
     Node = node(Pid),
     gen_server:call({?MODULE, Node}, {register_on_node, Key, Pid, Meta}).
+
+-spec async_unregister(Key :: any()) -> ok.
+async_unregister(Key) ->
+    case i_find_by_key(Key) of
+        undefined ->
+            {error, undefined};
+        Process ->
+            Node = node(Process#syn_registry_table.pid),
+            gen_server:cast({?MODULE, Node}, {unregister_on_node, Key})
+    end.
 
 -spec unregister(Key :: any()) -> ok | {error, undefined}.
 unregister(Key) ->
@@ -210,6 +231,51 @@ handle_call(Request, From, State) ->
 %% ----------------------------------------------------------------------------------------------------------
 %% Cast messages
 %% ----------------------------------------------------------------------------------------------------------
+
+handle_cast({register_on_node, Key, Pid, Meta}, State) ->
+    %% check & register in gen_server process to ensure atomicity at node level without transaction lock
+    %% atomicity is obviously not at cluster level, which is covered by syn_consistency.
+    
+    %% check if key registered
+    case i_find_by_key(Key) of
+        undefined ->
+            %% check if pid registered with different key
+            case i_find_by_pid(Pid) of
+                undefined ->
+                    %% add to table
+                    register_on_node(Key, Pid, node(), Meta),
+                    %% return
+                    {noreply, State};
+                
+                _ ->
+                    {noreply, State}
+            end;
+        
+        Process when Process#syn_registry_table.pid =:= Pid ->
+            %% re-register (maybe different metadata?)
+            register_on_node(Key, Pid, node(), Meta),
+            %% return
+            {noreply, State};
+        
+        _ ->
+            {noreply, State}
+    end;
+
+handle_cast({unregister_on_node, Key}, State) ->
+    %% we check again for key to return the correct response regardless of race conditions
+    case i_find_by_key(Key) of
+        undefined ->
+            {noreply, State};
+        Process ->
+            %% remove from table
+            remove_process_by_key(Key),
+            %% unlink
+            Pid = Process#syn_registry_table.pid,
+            erlang:unlink(Pid),
+            %% reply
+            {noreply, State}
+    end;
+
 -spec handle_cast(Msg :: any(), #state{}) ->
     {noreply, #state{}} |
     {noreply, #state{}, Timeout :: non_neg_integer()} |

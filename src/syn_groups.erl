@@ -28,6 +28,8 @@
 
 %% API
 -export([start_link/0]).
+-export([async_join/2, async_join/3]).
+-export([async_leave/2]).
 -export([join/2, join/3]).
 -export([leave/2]).
 -export([member/2]).
@@ -78,6 +80,20 @@ join(Name, Pid, Meta) when is_pid(Pid) ->
 leave(Name, Pid) when is_pid(Pid) ->
     Node = node(Pid),
     gen_server:call({?MODULE, Node}, {leave, Name, Pid}).
+
+-spec async_join(Name :: any(), Pid :: pid()) -> ok.
+async_join(Name, Pid) ->
+    async_join(Name, Pid, undefined).
+
+-spec async_join(Name :: any(), Pid :: pid(), Meta :: any()) -> ok.
+async_join(Name, Pid, Meta) when is_pid(Pid) ->
+    Node = node(Pid),
+    gen_server:cast({?MODULE, Node}, {join, Name, Pid, Meta}).
+
+-spec async_leave(Name :: any(), Pid :: pid()) -> ok.
+async_leave(Name, Pid) when is_pid(Pid) ->
+    Node = node(Pid),
+    gen_server:cast({?MODULE, Node}, {leave, Name, Pid}).
 
 -spec member(Pid :: pid(), Name :: any()) -> boolean().
 member(Pid, Name) when is_pid(Pid) ->
@@ -223,6 +239,44 @@ handle_call(Request, From, State) ->
     {noreply, #state{}} |
     {noreply, #state{}, Timeout :: non_neg_integer()} |
     {stop, Reason :: any(), #state{}}.
+
+handle_cast({join, Name, Pid, Meta}, State) ->
+    %% check if pid is already in group
+    case find_by_pid_and_name(Pid, Name) of
+        undefined ->
+            ok;
+        Process ->
+            %% remove old reference
+            mnesia:dirty_delete_object(Process)
+    end,
+    %% add to group
+    mnesia:dirty_write(#syn_groups_table{
+        name = Name,
+        pid = Pid,
+        node = node(),
+        meta = Meta
+    }),
+    %% link
+    erlang:link(Pid),
+    %% return
+    {noreply, State};
+
+handle_cast({leave, Name, Pid}, State) ->
+    case find_by_pid_and_name(Pid, Name) of
+        undefined ->
+            {noreply, State};
+        Process ->
+            %% remove from table
+            remove_process(Process),
+            %% unlink only when process is no more in groups
+            case find_groups_by_pid(Pid) of
+                [] -> erlang:unlink(Pid);
+                _ -> nop
+            end,
+            %% reply
+            {noreply, State}
+    end;
+
 
 handle_cast(Msg, State) ->
     error_logger:warning_msg("Received an unknown cast message: ~p", [Msg]),

@@ -70,6 +70,14 @@ stop() ->
 init() ->
     ok = syn_backbone:initdb().
 
+-spec async_register(Key :: any(), Pid :: pid()) -> ok.
+async_register(Key, Pid) ->
+    syn_registry:async_register(Key, Pid).
+
+-spec async_register(Key :: any(), Pid :: pid(), Meta :: any()) -> ok.
+async_register(Key, Pid, Meta) ->
+    syn_registry:async_register(Key, Pid, Meta).
+
 -spec register(Key :: any(), Pid :: pid()) -> ok | {error, taken | pid_already_registered}.
 register(Key, Pid) ->
     syn_registry:register(Key, Pid).
@@ -77,6 +85,10 @@ register(Key, Pid) ->
 -spec register(Key :: any(), Pid :: pid(), Meta :: any()) -> ok | {error, taken | pid_already_registered}.
 register(Key, Pid, Meta) ->
     syn_registry:register(Key, Pid, Meta).
+
+-spec async_unregister(Key :: any()) -> ok.
+async_unregister(Key) ->
+    syn_registry:async_unregister(Key).
 
 -spec unregister(Key :: any()) -> ok | {error, undefined}.
 unregister(Key) ->
@@ -132,6 +144,14 @@ send(Name, Message) ->
         Pid -> Pid ! Message, Pid
     end.
 
+-spec async_join(Name :: any(), Pid :: pid()) -> ok.
+async_joinn(Name, Pid) ->
+    syn_groups:async_join(Name, Pid).
+
+-spec async_join(Name :: any(), Pid :: pid(), Meta :: any()) -> ok.
+async_join(Name, Pid, Meta) ->
+    syn_groups:async_join(Name, Pid, Meta).
+
 -spec join(Name :: any(), Pid :: pid()) -> ok.
 join(Name, Pid) ->
     syn_groups:join(Name, Pid).
@@ -139,6 +159,10 @@ join(Name, Pid) ->
 -spec join(Name :: any(), Pid :: pid(), Meta :: any()) -> ok.
 join(Name, Pid, Meta) ->
     syn_groups:join(Name, Pid, Meta).
+
+-spec async_leave(Name :: any(), Pid :: pid()) -> ok | {error, pid_not_in_group}.
+async_leave(Name, Pid) ->
+    syn_groups:async_leave(Name, Pid).
 
 -spec leave(Name :: any(), Pid :: pid()) -> ok | {error, pid_not_in_group}.
 leave(Name, Pid) ->
