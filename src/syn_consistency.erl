@@ -126,7 +126,6 @@ handle_info({mnesia_system_event, {inconsistent_database, Context, RemoteNode}},
     {noreply, State};
 
 handle_info({mnesia_system_event, {mnesia_down, RemoteNode}}, State) when RemoteNode =/= node() ->
-    error_logger:error_msg("Received a MNESIA down event, removing on node ~p all pids of node ~p", [node(), RemoteNode]),
     delete_registry_pids_of_disconnected_node(RemoteNode),
     delete_groups_pids_of_disconnected_node(RemoteNode),
     {noreply, State};
