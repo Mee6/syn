@@ -311,15 +311,6 @@ handle_info({'EXIT', Pid, Reason}, #state{
             Key0 = Process#syn_registry_table.key,
             Meta0 = Process#syn_registry_table.meta,
             
-            %% log
-            case Reason of
-                normal -> ok;
-                shutdown -> ok;
-                killed -> ok;
-                _ ->
-                    error_logger:error_msg("Process with key ~p and pid ~p exited with reason: ~p", [Key0, Pid, Reason])
-            end,
-            
             %% delete from table
             remove_process_by_key(Key0),
             
